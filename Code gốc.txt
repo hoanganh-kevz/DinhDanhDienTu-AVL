@@ -1,0 +1,164 @@
+using System;
+using System.Linq;
+using System.Text;
+
+/* Giải thuật cây AVL
+-- Đây là cơ chế khắc phục sự mất căn bằng của BST - Nó kiểm soát độ chênh lệch chiều cao giữa hai nhánh con
+-- Đại lượng này được gọi là hệ số cân bằng (u là nút)
+                BF(u)=h(u_left)-h(u_right)
+trong đó h(u_left): chiều cao cây con bên trái, h(u_right): chiều cao cây con bên phải
+-- Quy tắc: tại mọi thời điểm và mọi nút, |BF| không được vượt quá 1. Và nếu |BF|>=2 thì đây là cây mất căn bằng => phải xử lý
+-- Từ đây ta cần khai báo thêm biến Hight Node để kiểm soát
+
+
+
+*/
+public class Avl_Tree
+{
+    public class Citizen    // class chứa thông tin 
+    {
+        public string ID {get; set;}
+        public string Name {get; set;}
+        public string Sex {get; set;}
+        public string Age {get; set;}
+    }
+
+    public class AVLNode    // class node 
+    {
+        public Citizen Data;
+        public AVLNode Left, Right; // 2 Node trái phải như BST
+        public int Height; // Xác định nhánh bên nào dài nhất 
+        
+        public AVLNode(Citizen data) //(Constructor) hàm khởi tạo, khi có dữ liệu mới
+        {
+            Data = data;
+            Height = 1; 
+        }
+
+        /*
+        1. Sử dụng nhanh: { return a+b } ta dùng => a+b
+        2. Toán tử 3 ngôi: a ? b : 0 
+        */
+    }
+    public class AvlTree    // class thao tác 
+    {
+        private int GetHeight(AVLNode node) => node?.Height ?? 0;
+                                            /* if (node != null)
+                                            {
+                                                return node.Height; // Nếu node có thật, trả về chiều cao của nó
+                                            }
+                                            else
+                                            {
+                                                return 0; // Nếu node là null (cây rỗng), coi như chiều cao là 0
+                                            }*/
+
+        private int GetBalance(AVLNode node) => node == null ? 0 : GetHeight(node.Left) - GetHeight(node.Right);
+        /*
+            Có 4 trường hợp: 
+            1. Lệch phải - phải
+            2. Gãy khúc: 
+                2.1: Lệch trái - phải 
+                2.2: Lệch phải - trái
+            3.  
+        */
+        // Phép quay phải - Dùng khi lệch trái - trái
+        private AVLNode RotateRight(AVLNode y)
+        {   
+            // thiết lập node
+            AVLNode x = y.Left;     // x là nhánh trái của y 
+            AVLNode T2 = x.Right;   // T2 là nhánh phải của x 
+
+            // Thực hiện quay 
+            x.Right = y; // nâng y lên hạ x xuống
+            y.Left = T2; // 
+
+            // cập nhật chiều cao (Ta phải cập nhật theo kiểu bottom - up: dưới lên)
+            y.Height = Math.Max(GetHeight(y.Left),GetHeight(y.Right))+1;
+            x.Height = Math.Max(GetHeight(x.Left),GetHeight(x.Right))+1;
+
+            return x;
+        }
+
+        // phép quay Right - Right 
+        private AVLNode RotateLeft(AVLNode x)
+        {
+            // thiết lập node
+            AVLNode  y = x.Right;     // x là nhánh trái của y 
+            AVLNode T2 = y.Left;   // T2 là nhánh phải của x 
+
+            // Thực hiện quay 
+            y.Left = x; // nâng y lên hạ x xuống
+            x.Right = T2; // 
+
+            // cập nhật chiều cao (Ta phải cập nhật theo kiểu bottom - up: dưới lên)
+            x.Height = Math.Max(GetHeight(y.Left),GetHeight(y.Right))+1;
+            y.Height = Math.Max(GetHeight(x.Left),GetHeight(x.Right))+1;
+
+            return y;
+        }
+
+        // Hàm Insert và tự cân bằng 
+        private AVLNode BalanceNode(AVLNode node) 
+        {
+            // 1. Cập nhật chiều cao trước khi cân bằng
+            // (Để đảm bảo dữ liệu height luôn mới nhất để tính balance)
+            UpdateHeight(node); 
+
+            int balance = GetBalance(node);
+
+            // Nhóm Lệch Trái
+            if (balance > 1) 
+            {
+                // Kiểm tra chiều cao con trái thay vì so sánh ID (tổng quát hơn cho cả Insert/Delete)
+                // Nếu con trái bị lệch phải (Height Right > Height Left) -> Left-Right Case
+                if (GetBalance(node.Left) < 0) 
+                {
+                    node.Left = RotateLeft(node.Left);
+                }
+                return RotateRight(node);
+            }
+
+            // Nhóm Lệch Phải
+            if (balance < -1) 
+            {
+                // Nếu con phải bị lệch trái -> Right-Left Case
+                if (GetBalance(node.Right) > 0) 
+                {
+                    node.Right = RotateRight(node.Right);
+                }
+                return RotateLeft(node);
+            }
+
+            return node; // Cây đã cân bằng
+        }
+        // Hàm phụ trợ cập nhật chi
+        private void UpdateHeight(AVLNode node) => 
+            node.Height = 1 + Math.Max(GetHeight(node.Left), GetHeight(node.Right));
+
+        public AVLNode Insert(AVLNode node, Citizen data) 
+        {
+            if (node == null) return new AVLNode(data);
+
+            int comparison = string.Compare(data.ID, node.Data.ID);
+            if (comparison < 0)
+                node.Left = Insert(node.Left, data);
+            else if (comparison > 0)
+                node.Right = Insert(node.Right, data);
+            else
+                return node; // Trùng ID
+
+            // Chỉ cần gọi đúng 1 dòng này ở cuối
+            return BalanceNode(node);
+        }
+
+    }
+}
+public class Program
+{   
+    // Khai triển class 
+
+    static void Main(string[] args)
+    {
+        
+    }
+}
