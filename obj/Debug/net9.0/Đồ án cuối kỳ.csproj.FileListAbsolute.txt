@@ -1,0 +1,29 @@
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\bin\Debug\net9.0\Đồ án cuối kỳ.exe
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\bin\Debug\net9.0\Đồ án cuối kỳ.deps.json
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\bin\Debug\net9.0\Đồ án cuối kỳ.runtimeconfig.json
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\bin\Debug\net9.0\Đồ án cuối kỳ.dll
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\bin\Debug\net9.0\Đồ án cuối kỳ.pdb
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\obj\Debug\net9.0\Đồ án cuối kỳ.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\obj\Debug\net9.0\Đồ án cuối kỳ.AssemblyInfoInputs.cache
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\obj\Debug\net9.0\Đồ án cuối kỳ.AssemblyInfo.cs
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\obj\Debug\net9.0\Đồ án cuối kỳ.csproj.CoreCompileInputs.cache
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\obj\Debug\net9.0\Đồ án cuối kỳ.dll
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\obj\Debug\net9.0\refint\Đồ án cuối kỳ.dll
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\obj\Debug\net9.0\Đồ án cuối kỳ.pdb
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\obj\Debug\net9.0\Đồ án cuối kỳ.genruntimeconfig.cache
+C:\Users\ADMIN\Downloads\c# giải thuật\Đồ án cuối kỳ\obj\Debug\net9.0\ref\Đồ án cuối kỳ.dll
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\bin\Debug\net9.0\Đồ án cuối kỳ.exe
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\bin\Debug\net9.0\Đồ án cuối kỳ.deps.json
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\bin\Debug\net9.0\Đồ án cuối kỳ.runtimeconfig.json
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\bin\Debug\net9.0\Đồ án cuối kỳ.dll
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\bin\Debug\net9.0\Đồ án cuối kỳ.pdb
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\Đồ án cuối kỳ.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\Đồ án cuối kỳ.AssemblyInfoInputs.cache
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\Đồ án cuối kỳ.AssemblyInfo.cs
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\Đồ án cuối kỳ.csproj.CoreCompileInputs.cache
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\Đồ án cuối kỳ.sourcelink.json
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\Đồ án cuối kỳ.dll
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\refint\Đồ án cuối kỳ.dll
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\Đồ án cuối kỳ.pdb
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\Đồ án cuối kỳ.genruntimeconfig.cache
+C:\Users\ADMIN\OneDrive\Máy tính\bt 49\DinhDanhDienTu-AVL\obj\Debug\net9.0\ref\Đồ án cuối kỳ.dll
