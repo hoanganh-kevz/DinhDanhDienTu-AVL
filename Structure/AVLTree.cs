@@ -5,29 +5,25 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
-using AVL.Services; 
+using AVL.Services;
 
 namespace AVL.DataStructures
 {
     /// <summary>
-    /// CÂY AVL CHUẨN DOANH NGHIỆP (NO EVENTS VERSION)
-    /// Tính năng: Generic, Thread-Safe, Encryption, Pagination, Validation.
+    /// CÂY AVL CHUẨN DOANH NGHIỆP (PHIÊN BẢN HỖ TRỢ BENCHMARK)
+    /// Tính năng: Generic, Thread-Safe, Encryption, Pagination, Validation, Performance Mode.
     /// </summary>
     public class AVLTree<T> : IDisposable, IEnumerable<T> where T : IComparable<T>
     {
         #region 1. FIELDS & CONFIGURATION
         private AVLNode<T> _root;
-        
         // Khóa đa luồng (Tối ưu cho hệ thống đọc nhiều - ghi ít)
         private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
-        
         // Key mã hóa AES-256 (Hardcode demo)
-        private readonly byte[] _key = System.Text.Encoding.UTF8.GetBytes("DoAnTotNghiep_MatKhauSieuBaoMat!"); 
+        private readonly byte[] _key = System.Text.Encoding.UTF8.GetBytes("DoAnTotNghiep_MatKhauSieuBaoMat!");
         private readonly byte[] _iv = System.Text.Encoding.UTF8.GetBytes("VectorKhoiTao123");
-
         // Delegate để kiểm tra dữ liệu đầu vào (Validation)
         private readonly Func<T, bool> _validator;
-
         public AVLTree(Func<T, bool> validator = null)
         {
             _validator = validator;
@@ -35,51 +31,94 @@ namespace AVL.DataStructures
         #endregion
 
         #region 2. PUBLIC API (CRUD + LOGGING)
-        
-        public void Add(T data)
-        {
-            // 1. Validate và Log Error nếu sai
-            if (_validator != null && !_validator(data)) 
-            {
-                AuditService.Log(AuditAction.ERROR, data.ToString(), "Add Failed: Du lieu khong hop le");
-                throw new ArgumentException("Du lieu khong hop le");
-            }
+        // [UPDATE]: Thêm tham số isBenchmark
+        // Trong class AVLTree<T>
 
+        public void Add(T data, bool isBenchmark = false)
+        {
+            // 1. Validate
+            if (_validator != null && !_validator(data))
+            {
+                if (!isBenchmark) AuditService.Log(AuditAction.ERROR, data.ToString(), "Add Failed: Invalid Data");
+                throw new ArgumentException("Invalid Data");
+            }
             _lock.EnterWriteLock();
             try
             {
-                _root = Insert(_root, data);
-                // 2. Log Success
-                AuditService.Log(AuditAction.ADD, data.ToString(), "Them moi thanh cong");
+                // [FIX QUAN TRỌNG]: Chạy trên Thread riêng với Stack 40MB
+                // Bắt buộc phải có đoạn này thì BST mới chạy được 100k dòng Sorted
+                Exception threadEx = null;
+                var thread = new Thread(() =>
+                {
+                    try
+                    {
+                        _root = Insert(_root, data);
+                    }
+                    catch (Exception ex)
+                    {
+                        threadEx = ex; // Bắt lỗi nếu có
+                    }
+                }, 40 * 1024 * 1024); // Cấp 40MB Stack (Mặc định chỉ 1MB)
+                thread.Start();
+                thread.Join(); // Đợi chạy xong
+                if (threadEx != null) throw threadEx;
+                // 2. Log Success (Chỉ log khi thêm lẻ, tắt khi Benchmark)
+                if (!isBenchmark)
+                    AuditService.Log(AuditAction.ADD, data.ToString(), "Them moi thanh cong");
             }
             finally { _lock.ExitWriteLock(); }
         }
+        // [UPDATE]: Thêm tham số isBenchmark
 
-        public bool Remove(T value)
+        public void AddList(List<T> dataList)
+        {
+            // Tạo 1 Thread to đùng (40MB Stack)
+            var thread = new Thread(() =>
+            {
+                foreach (var item in dataList)
+                {
+                    try
+                    {
+                        // Gọi trực tiếp hàm đệ quy Insert (bỏ qua các bước tạo thread thừa thãi)
+                        _root = Insert(_root, item);
+                    }
+                    catch { /* Bỏ qua lỗi lẻ tẻ để không dừng luồng nạp */ }
+                }
+            }, 40 * 1024 * 1024); // 40MB Stack
+
+            thread.Start();
+            thread.Join(); // Đợi Thread xử lý xong hết 100k phần tử mới chạy tiếp
+        }
+
+        public bool Remove(T value, bool isBenchmark = false)
         {
             _lock.EnterWriteLock();
             try
             {
-                if (Search(_root, value) == null) 
+                if (Search(_root, value) == null)
                 {
-                    // Log cảnh báo nếu xóa không thấy (tùy chọn)
-                    AuditService.Log(AuditAction.ERROR, value.ToString(), "Remove Failed: Khong tim thay ID");
+                    if (!isBenchmark)
+                        AuditService.Log(AuditAction.ERROR, value.ToString(), "Remove Failed: Khong tim thay ID");
                     return false;
                 }
 
                 _root = DeleteNode(_root, value);
-                // Log Success
-                AuditService.Log(AuditAction.REMOVE, value.ToString(), "Xoa thanh cong");
+
+                if (!isBenchmark)
+                    AuditService.Log(AuditAction.REMOVE, value.ToString(), "Xoa thanh cong");
+
                 return true;
             }
             finally { _lock.ExitWriteLock(); }
         }
+        // [UPDATE]: Thêm tham số isBenchmark
 
-        public bool Update(T oldVal, T newVal)
+        public bool Update(T oldVal, T newVal, bool isBenchmark = false)
         {
-            if (_validator != null && !_validator(newVal)) 
+            if (_validator != null && !_validator(newVal))
             {
-                AuditService.Log(AuditAction.ERROR, newVal.ToString(), "Update Failed: Du lieu moi khong hop le");
+                if (!isBenchmark)
+                    AuditService.Log(AuditAction.ERROR, newVal.ToString(), "Update Failed: Du lieu moi khong hop le");
                 return false;
             }
 
@@ -91,35 +130,45 @@ namespace AVL.DataStructures
                     if (Search(_root, oldVal) == null) return false;
                     _root = DeleteNode(_root, oldVal);
                     _root = Insert(_root, newVal);
-                    
-                    AuditService.Log(AuditAction.UPDATE, newVal.ToString(), $"Cap nhat ID tu {oldVal} -> {newVal}");
+
+                    if (!isBenchmark)
+                        AuditService.Log(AuditAction.UPDATE, newVal.ToString(), $"Cap nhat ID tu {oldVal} -> {newVal}");
+
                     return true;
                 }
-                
+
                 // Giữ Key
                 AVLNode<T> node = SearchNode(_root, oldVal);
                 if (node != null)
                 {
                     node.Data = newVal;
-                    AuditService.Log(AuditAction.UPDATE, newVal.ToString(), "Cap nhat thong tin (ID giu nguyen)");
+
+                    if (!isBenchmark)
+                        AuditService.Log(AuditAction.UPDATE, newVal.ToString(), "Cap nhat thong tin (ID giu nguyen)");
+
                     return true;
                 }
                 return false;
             }
             finally { _lock.ExitWriteLock(); }
         }
+        // [UPDATE]: Thêm tham số isBenchmark
 
-        public T Find(T searchKey)
+        public T Find(T searchKey, bool isBenchmark = false)
         {
             _lock.EnterReadLock();
-            try 
-            { 
-                var result = Search(_root, searchKey); 
-                if (result != null)
-                    AuditService.Log(AuditAction.SEARCH, result.ToString(), "Tra cuu thanh cong");
-                else
-                    AuditService.Log(AuditAction.SEARCH, searchKey.ToString(), "Tra cuu that bai (Not Found)");
-                
+            try
+            {
+                var result = Search(_root, searchKey);
+
+                if (!isBenchmark)
+                {
+                    if (result != null)
+                        AuditService.Log(AuditAction.SEARCH, result.ToString(), "Tra cuu thanh cong");
+                    else
+                        AuditService.Log(AuditAction.SEARCH, searchKey.ToString(), "Tra cuu that bai (Not Found)");
+                }
+
                 return result;
             }
             finally { _lock.ExitReadLock(); }
@@ -127,7 +176,6 @@ namespace AVL.DataStructures
         #endregion
 
         #region 3. ADVANCED QUERY (PHÂN TRANG & TÌM KHOẢNG)
-
         public List<T> GetPage(int pageIndex, int pageSize)
         {
             _lock.EnterReadLock();
@@ -141,7 +189,6 @@ namespace AVL.DataStructures
             }
             finally { _lock.ExitReadLock(); }
         }
-
         public List<T> FindRange(T min, T max)
         {
             _lock.EnterReadLock();
@@ -153,15 +200,12 @@ namespace AVL.DataStructures
             }
             finally { _lock.ExitReadLock(); }
         }
-
-        // Lấy toàn bộ danh sách đã sắp xếp (Dùng cho báo cáo)
         public List<T> GetSortedList()
         {
             _lock.EnterReadLock();
             try
             {
                 List<T> result = new List<T>();
-                // Tận dụng hàm InOrderTraversal có sẵn ở Region 7
                 InOrderTraversal(_root, result);
                 return result;
             }
@@ -170,18 +214,16 @@ namespace AVL.DataStructures
                 _lock.ExitReadLock();
             }
         }
-        
         #endregion
 
         #region 4. PERSISTENCE (LƯU TRỮ MÃ HÓA)
-
         public void SaveEncrypted(string filePath)
         {
             _lock.EnterReadLock();
             try
             {
                 List<T> allData = new List<T>();
-                InOrderTraversal(_root, allData); // Lấy hết dữ liệu ra
+                InOrderTraversal(_root, allData);
                 string json = JsonSerializer.Serialize(allData);
 
                 using (Aes aes = Aes.Create())
@@ -198,11 +240,9 @@ namespace AVL.DataStructures
             }
             finally { _lock.ExitReadLock(); }
         }
-
         public void LoadEncrypted(string filePath)
         {
             if (!File.Exists(filePath)) return;
-
             _lock.EnterWriteLock();
             try
             {
@@ -227,7 +267,6 @@ namespace AVL.DataStructures
 
         #region 5. INFRASTRUCTURE (DISPOSE & ENUMERATOR)
         public void Dispose() => _lock?.Dispose();
-
         public IEnumerator<T> GetEnumerator()
         {
             _lock.EnterReadLock();
@@ -249,7 +288,6 @@ namespace AVL.DataStructures
         #endregion
 
         #region 6. CORE ALGORITHMS (PRIVATE)
-        
         // --- Insert Logic ---
         private AVLNode<T> Insert(AVLNode<T> node, T data)
         {
@@ -260,7 +298,6 @@ namespace AVL.DataStructures
             else return node;
             return BalanceNode(node);
         }
-
         // --- Delete Logic ---
         private AVLNode<T> DeleteNode(AVLNode<T> node, T key)
         {
@@ -286,7 +323,6 @@ namespace AVL.DataStructures
             if (node == null) return node;
             return BalanceNode(node);
         }
-
         // --- Search Helpers ---
         private T Search(AVLNode<T> node, T key)
         {
@@ -296,7 +332,6 @@ namespace AVL.DataStructures
             if (cmp > 0) return Search(node.Right, key);
             return node.Data;
         }
-
         private AVLNode<T> SearchNode(AVLNode<T> node, T key)
         {
             if (node == null) return null;
@@ -305,7 +340,6 @@ namespace AVL.DataStructures
             if (cmp > 0) return SearchNode(node.Right, key);
             return node;
         }
-
         private AVLNode<T> MinValueNode(AVLNode<T> node)
         {
             AVLNode<T> current = node;
@@ -324,7 +358,6 @@ namespace AVL.DataStructures
                 InOrderTraversal(node.Right, list);
             }
         }
-
         private void InOrderPaging(AVLNode<T> node, int skip, int take, ref int currentCount, List<T> result)
         {
             if (node == null || result.Count >= take) return;
@@ -336,13 +369,12 @@ namespace AVL.DataStructures
             }
             InOrderPaging(node.Right, skip, take, ref currentCount, result);
         }
-
         private void RangeTraversal(AVLNode<T> node, T min, T max, List<T> result)
         {
             if (node == null) return;
             int cmpMin = min.CompareTo(node.Data);
             int cmpMax = max.CompareTo(node.Data);
-            
+
             if (cmpMin < 0) RangeTraversal(node.Left, min, max, result);
             if (cmpMin <= 0 && cmpMax >= 0) result.Add(node.Data);
             if (cmpMax > 0) RangeTraversal(node.Right, min, max, result);
@@ -353,7 +385,6 @@ namespace AVL.DataStructures
         private int GetHeight(AVLNode<T> node) => node?.Height ?? 0;
         private int GetBalance(AVLNode<T> node) => node == null ? 0 : GetHeight(node.Left) - GetHeight(node.Right);
         private void UpdateHeight(AVLNode<T> node) => node.Height = 1 + Math.Max(GetHeight(node.Left), GetHeight(node.Right));
-
         private AVLNode<T> BalanceNode(AVLNode<T> node)
         {
             UpdateHeight(node);
@@ -370,7 +401,6 @@ namespace AVL.DataStructures
             }
             return node;
         }
-
         private AVLNode<T> RotateRight(AVLNode<T> y)
         {
             AVLNode<T> x = y.Left; AVLNode<T> T2 = x.Right;
@@ -378,7 +408,6 @@ namespace AVL.DataStructures
             UpdateHeight(y); UpdateHeight(x);
             return x;
         }
-
         private AVLNode<T> RotateLeft(AVLNode<T> x)
         {
             AVLNode<T> y = x.Right; AVLNode<T> T2 = y.Left;

@@ -1,11 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
-using AVL.Models;         // Gọi thư mục chứa Citizen
-using AVL.DataStructures; // Gọi thư mục chứa AVLTree
+using System.Diagnostics; // Thư viện để đo thời gian (Stopwatch)
+using AVL.Models;
+using AVL.DataStructures;
 using AVL.Validation;
 using AVL.Services;
 using AVL.Helpers;
-
+using BST.DataStructures;
 /*
 "Thưa thầy cô, em không sử dụng SQL Server vì mục tiêu của đồ án là xây dựng một Core Engine định danh từ con số 0. 
 Em sử dụng Cây AVL để tự quản lý bộ nhớ, tự đánh chỉ mục và tự xử lý truy vấn. File trên đĩa chỉ là nơi để persist (lưu bền vững) dữ liệu thô. 
@@ -14,35 +16,43 @@ Nếu dùng SQL Server, đồ án sẽ trở thành bài tập lập trình web 
 namespace IdentityProject
 {
     class Program
-    {   
-        // --- CÁC HÀM PHỤ TRỢ (HELPER METHODS) ĐỂ CODE MAIN GỌN GÀNG ---
+    {
+        // --- CÁC HÀM PHỤ TRỢ (HELPER METHODS) ---
 
-        // Hàm thêm dữ liệu cho gọn code
-        static void AddData(AVLTree<Citizen> system, string id, string name, string sex, string dob)
+        // 1. Hàm thêm dữ liệu (Có đo thời gian thực thi)
+        static void AddData(AVLTree<Citizen> system, string id, string name, string sex, string dobString)
         {
-            var citizen = new Citizen 
-            { 
-                ID = id, 
-                Name = name, 
-                Sex = sex, 
-                BirthDate = dob 
-            };
-            
-            try 
+            DateTime dob;
+            if (!DateTime.TryParse(dobString, out dob))
             {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[-] Loi dinh dang ngay sinh: {dobString} (Yeu cau: yyyy-MM-dd)");
+                Console.ResetColor();
+                return;
+            }
+
+            var citizen = new Citizen { ID = id, Name = name, Sex = sex, BirthDate = dob };
+
+            try
+            {
+                // BẮT ĐẦU ĐO THỜI GIAN
+                var sw = Stopwatch.StartNew();
                 system.Add(citizen);
-                Console.WriteLine($"[+] Da them: {id} - {name}");
+                sw.Stop();
+                // KẾT THÚC ĐO
+
+                // In ra thời gian thực thi ngay cạnh kết quả (để thầy thấy tốc độ)
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine($"    -> Thoi gian Insert: {sw.Elapsed.TotalMilliseconds:F4} ms");
+                Console.ResetColor();
             }
             catch (Exception ex)
             {
-                // Nếu lỗi thì in ra dòng màu đỏ và CHẠY TIẾP, không crash app
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[-] Loi them {id}: {ex.Message}");
-                Console.ResetColor();
+                // Lỗi đã được AuditService ghi, ở đây không cần làm gì thêm
             }
         }
 
-        // Hàm tìm kiếm và in kết quả đẹp
+        // 2. Hàm tìm kiếm (Có đo thời gian)
         static void SearchAndPrint(AVLTree<Citizen> system, string searchId)
         {
             Console.Write($"Dang truy van ID: ");
@@ -50,17 +60,10 @@ namespace IdentityProject
             Console.WriteLine(searchId);
             Console.ResetColor();
 
-            // LƯU Ý QUAN TRỌNG VỀ GENERICS:
-            // Vì hàm Find(T key) yêu cầu đầu vào là một object kiểu T (Citizen),
-            // Ta cần tạo một "Citizen giả" chỉ chứa ID để làm khóa tìm kiếm.
-            // (Hàm CompareTo trong Citizen.cs sẽ chỉ so sánh ID và bỏ qua Name, Sex...)
             var searchKey = new Citizen { ID = searchId };
 
-            // Đo thời gian thực thi (để lòe giám khảo về tốc độ)
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-            
+            var watch = Stopwatch.StartNew();
             Citizen result = system.Find(searchKey);
-            
             watch.Stop();
 
             if (result != null)
@@ -68,16 +71,90 @@ namespace IdentityProject
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("=> KET QUA: TIM THAY!");
                 Console.ResetColor();
-                Console.WriteLine($"   {result.ToString()}");
-                Console.WriteLine($"   Thoi gian tim: {watch.Elapsed.TotalMilliseconds} ms (Sieu nhanh)");
+                Console.WriteLine($"   {result}");
+                Console.WriteLine($"   Thoi gian Search: {watch.Elapsed.TotalMilliseconds:F4} ms");
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("=> KET QUA: KHONG TIM THAY HO SO TRONG HE THONG.");
+                Console.WriteLine("=> KET QUA: KHONG TIM THAY.");
                 Console.ResetColor();
+                Console.WriteLine($"   Thoi gian Search (Fail): {watch.Elapsed.TotalMilliseconds:F4} ms");
             }
             Console.WriteLine();
+        }
+
+        // 3. Hàm xóa (Tách ra để code gọn và đo thời gian)
+        static void RemoveData(AVLTree<Citizen> system, string id)
+        {
+            Console.WriteLine($"Dang yeu cau xoa ID: {id}...");
+            var key = new Citizen { ID = id };
+
+            var sw = Stopwatch.StartNew();
+            bool result = system.Remove(key);
+            sw.Stop();
+
+            if (result)
+            {
+                Console.WriteLine("=> Da xoa thanh cong!");
+                Console.WriteLine($"   Thoi gian Delete: {sw.Elapsed.TotalMilliseconds:F4} ms");
+            }
+            else
+            {
+                Console.WriteLine("=> Loi: Khong tim thay ID de xoa.");
+                Console.WriteLine($"   Thoi gian Delete (Fail): {sw.Elapsed.TotalMilliseconds:F4} ms");
+            }
+            Console.WriteLine();
+        }
+
+        // 4. Hàm sinh dữ liệu tự động cho Benchmark
+        static List<Citizen> GenerateData(int count, bool isSorted)
+        {
+            var list = new List<Citizen>();
+            var rand = new Random();
+            Console.WriteLine($"[GENERATOR] Dang sinh {count} ban ghi (Che do Sorted: {isSorted})...");
+
+            for (int i = 0; i < count; i++)
+            {
+                // Nếu Sorted: ID tăng dần -> Kẻ thù của BST
+                // Nếu Random: ID ngẫu nhiên -> BST và AVL ngang ngửa
+                int idNum = isSorted ? i + 1 : rand.Next(1, 999999999);
+                string id = idNum.ToString("D12");
+
+                list.Add(new Citizen { ID = id, Name = $"User {i}", Sex = "Nam", BirthDate = DateTime.Now });
+            }
+            return list;
+        }
+
+        // 5. Hàm chạy đua Benchmark (So sánh BST vs AVL)
+        // Hàm chạy đua Benchmark (Đã tối ưu Bulk Insert)
+        static void RunBenchmark(string treeName, dynamic tree, List<Citizen> data)
+        {
+            Console.Write($" -> {treeName} dang nap {data.Count} ban ghi... ");
+            // BẮT ĐẦU ĐO
+            var sw = Stopwatch.StartNew();
+            // [THAY ĐỔI QUAN TRỌNG]: 
+            // Dùng AddList để chạy 1 Thread duy nhất cho toàn bộ danh sách.
+            // Loại bỏ hoàn toàn thời gian chết do khởi tạo Thread liên tục.
+            tree.AddList(data);
+            sw.Stop();
+            // KẾT THÚC ĐO
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"DONE! Thoi gian Insert: {sw.Elapsed.TotalMilliseconds:F2} ms");
+            Console.ResetColor();
+            // --- ĐO SEARCH (Tìm phần tử cuối cùng - Worst Case) ---
+            if (data.Count > 0)
+            {
+                var lastItem = data[data.Count - 1];
+                var key = new Citizen { ID = lastItem.ID };
+
+                sw.Restart();
+                // Hàm Find vẫn dùng Thread lẻ cũng được vì chỉ tìm 1 lần
+                var result = tree.Find(key, isBenchmark: true);
+                sw.Stop();
+
+                Console.WriteLine($"    -> Search (Worst Case): {sw.Elapsed.TotalMilliseconds:F4} ms");
+            }
         }
 
         static void PrintHeader()
@@ -99,82 +176,119 @@ namespace IdentityProject
             Console.ResetColor();
             Console.WriteLine("-------------------------------------------------");
         }
+
+        // --- MAIN PROGRAM ---
         static void Main(string[] args)
         {
-            // 1. Cấu hình hiển thị tiếng Việt và màu sắc
             Console.OutputEncoding = Encoding.UTF8;
             Console.Title = "HỆ THỐNG ĐỊNH DANH ĐIỆN TỬ (AVL CORE)";
 
             PrintHeader();
-
-            // 2. Khởi tạo hệ thống (Core Engine)
-            // Cú pháp Generics: Khai báo rõ ràng cây này chứa Citizen
-            // Khởi tạo với Luật: ID phải đủ 12 ký tự
-            AVLTree<Citizen> eidSystem = new AVLTree<Citizen>(c => 
+            // 1. KHỞI TẠO HỆ THỐNG
+            AVLTree<Citizen> eidSystem = new AVLTree<Citizen>(c =>
             {
-                try
-                {
-                    // Gọi cái class xịn xò bạn đã viết
-                    CitizenValidator.ValidateOrThrow(c);
-                    return true; // Nếu không bị ném lỗi nghĩa là hợp lệ
-                }
+                try { CitizenValidator.ValidateOrThrow(c); return true; }
                 catch (Exception ex)
                 {
-                    // Nếu CitizenValidator ném lỗi -> In lỗi ra và trả về false
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"[VALIDATION ERROR] {ex.Message}");
+                    Console.WriteLine($"[VALIDATION BLOCKED] {ex.Message}");
                     Console.ResetColor();
-                    return false; 
+                    return false;
                 }
             });
-
-            // 3. Nạp dữ liệu giả lập (Mock Data)
+            // 2. NẠP DỮ LIỆU MẪU (Init Data)
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Dang khoi tao du lieu cong dan...");
+            Console.WriteLine("Dang khoi tao du lieu mau (Init Data)...");
             Console.ResetColor();
-
-            // Kịch bản test AVL: Thêm dữ liệu theo thứ tự gây mất cân bằng để test khả năng tự xoay
-            AddData(eidSystem, "0850$@#@##01", "Nguyen Van An", "Nam", "1990-01-01");
-            AddData(eidSystem, "072234234002", "Tran Thi Bich", "Nu", "1995-05-20"); // ID nhỏ hơn -> Lệch trái
-            AddData(eidSystem, "061002234243", "Le Van Cuong", "Nam", "1988-12-10"); // ID nhỏ tiếp -> Gây mất cân bằng -> Cây tự xoay
+            AddData(eidSystem, "0850$@#@##01", "Hacker", "Nam", "1990-01-01"); // Lỗi
             AddData(eidSystem, "085001000000", "Nguyen Van An", "Nam", "1990-01-01");
-            AddData(eidSystem, "072002000000", "Tran Thi Bich", "Nu", "1995-05-20");
-            Console.WriteLine("=> Da nap thanh cong 5 trieu... (gia lap 5) ban ghi vao RAM.\n");
-            
-            // 4. DEMO TÍNH NĂNG TÌM KIẾM (SEARCH)
-            PrintSection("TEST 1: TIM KIEM THANH CONG");
-            string idCanTim = "085001000000"; // ID của Tran Thi Bich
-            SearchAndPrint(eidSystem, idCanTim);
+            AddData(eidSystem, "072234234002", "Tran Thi Bich", "Nu", "1995-05-20");
+            AddData(eidSystem, "061002234243", "Le Van Cuong", "Nam", "1988-12-10");
+            Console.WriteLine("=> Da nap xong du lieu nen.\n");
 
-            PrintSection("TEST 2: TIM KIEM THAT BAI (KHONG TON TAI)");
-            string idAo = "999999"; // ID không có thật
-            SearchAndPrint(eidSystem, idAo);
+            // --- BẮT ĐẦU CÁC BÀI TEST CHỨC NĂNG ĐƠN LẺ ---
+            // TEST 1: TÌM KIẾM THÀNH CÔNG
+            PrintSection("TEST 1: DEMO TIM KIEM (SEARCH)");
+            SearchAndPrint(eidSystem, "085001000000");
 
-            // 6. TEST CHỨC NĂNG XÓA (DELETE)
-            PrintSection("TEST 3: XOA HO SO");
-            string idCanXoa = "072002000000"; // ID gây mất cân bằng hồi nãy
-            Console.WriteLine($"Dang xoa ID: {idCanXoa}...");
-            
-            // Tạo dummy object để xóa
-            var keyXoa = new Citizen { ID = idCanXoa };
-            bool isDeleted = eidSystem.Remove(keyXoa);
+            // TEST 2: THÊM MỚI (INSERT)
+            PrintSection("TEST 2: THEM CONG DAN MOI (INSERT)");
 
-            if (isDeleted) Console.WriteLine("=> Da xoa thanh cong!");
-            else Console.WriteLine("=> Loi: Khong tim thay ID de xoa.");
+            Console.WriteLine("Kich ban 1: Them cong dan hop le (ID: 099123456789)");
+            AddData(eidSystem, "099123456789", "Pham Van Moi", "Nam", "1999-09-09");
 
-            // 7. TEST CHỨC NĂNG BÁO CÁO (DUYỆT CÂY)
-            PrintSection("TEST 4: XUAT BAO CAO (SORTED LIST)");
+            Console.WriteLine("\nKich ban 2: Them trung ID da co (ID: 099123456789)");
+            // Thử thêm trùng -> Hệ thống sẽ không báo lỗi crash
+            AddData(eidSystem, "099123456789", "Lu Vo Hoang Phuc", "Nam", "2000-01-01");
+
+            Console.WriteLine("\n-> Kiem tra lai ID 099123456789 sau khi them trung:");
+            SearchAndPrint(eidSystem, "099123456789");
+
+            // TEST 3: TÌM KIẾM KHÔNG THẤY
+            PrintSection("TEST 3: TIM KIEM THAT BAI (NOT FOUND)");
+            SearchAndPrint(eidSystem, "999999999999");
+
+            // TEST 4: XÓA (DELETE)
+            PrintSection("TEST 4: XOA HO SO (DELETE)");
+            string idXoa = "061002234243";
+            RemoveData(eidSystem, idXoa); // Hàm xóa có đo thời gian
+            SearchAndPrint(eidSystem, idXoa); // Kiểm tra lại
+
+            // TEST 5: CHỨC NĂNG BÁO CÁO (DUYỆT CÂY)
+            PrintSection("TEST 5: XUAT BAO CAO (SORTED LIST)");
             Console.WriteLine("Danh sach cong dan sau khi xoa va sap xep tang dan:\n");
-
+            // BẮT ĐẦU ĐO THỜI GIAN DUYỆT CÂY (TRAVERSAL)
+            var swReport = Stopwatch.StartNew();
             var reportList = eidSystem.GetSortedList();
+            swReport.Stop();
+            // KẾT THÚC ĐO
             foreach (var item in reportList)
             {
                 Console.WriteLine(item.ToString());
             }
+            // In thời gian duyệt cây 
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine($"\n(Thoi gian duyet In-Order lay {reportList.Count} ban ghi: {swReport.Elapsed.TotalMilliseconds:F4} ms)");
+            Console.ResetColor();
 
-            // 5. Kết thúc
+            // --- PHẦN QUAN TRỌNG NHẤT: BENCHMARK 100.000 DÒNG ---
+            PrintSection("TEST 6: BENCHMARK - CUOC DUA TOC DO (BST vs AVL)");
+            int N = 100000; // Số lượng bản ghi (Tăng lên 100.000 nếu máy mạnh)
+            Console.WriteLine($"Khoi tao moi truong dua: N = {N} ban ghi.\n");
+            // KỊCH BẢN A: RANDOM
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("=== KICH BAN A: DU LIEU NGAU NHIEN (RANDOM)");
+            Console.ResetColor();
+            var dataRandom = GenerateData(N, isSorted: false);
+
+            var avl1 = new AVLTree<Citizen>();
+            var bst1 = new BSTree<Citizen>(); // Nhớ tạo class BSTree trước khi chạy
+
+            RunBenchmark("BST (Random)", bst1, dataRandom);
+            RunBenchmark("AVL (Random)", avl1, dataRandom);
+            Console.WriteLine("=> Nhan xet: Toc do AVL nhanh hơn BST.\n");
+            // KỊCH BẢN B: SORTED (BST CHẾT, AVL SỐNG)
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("=== KICH BAN B: DU LIEU SAP XEP (SORTED)");
+            Console.ResetColor();
+            var dataSorted = GenerateData(N, isSorted: true);
+
+            var avl2 = new AVLTree<Citizen>();
+            var bst2 = new BSTree<Citizen>();         
+         
+            // Chạy AVL 
+            RunBenchmark("AVL (Sorted)", avl2, dataSorted);
+            // Chạy BST (Sẽ rất chậm nếu N lớn)
+            RunBenchmark("BST (Sorted)", bst2, dataSorted);
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\n=> KET LUAN:");
+            Console.WriteLine("   1. BST bi suy bien thanh O(n) khi du lieu co thu tu -> Rat cham.");
+            Console.WriteLine("   2. AVL luon duy tri O(log n) nho tu can bang -> On dinh tuyet doi.");
+            Console.ResetColor();
+
             Console.WriteLine("\n-------------------------------------------------");
-            Console.WriteLine("Nhan Enter de ket thuc chuong trinh...");
+            Console.WriteLine("Demo Core Engine hoan tat. Nhan Enter de ket thuc...");
             Console.ReadLine();
         }
     }
